@@ -11,6 +11,8 @@ $saudacao = (int) date('H') < 12 ? 'Bom dia' : ((int) date('H') < 18 ? 'Boa tard
 $cards = [
     ['bi-people', $total['clientes'], 'Clientes', 'verCliente.php'],
     ['bi-circle-half', $total['materiais'], 'Materiais', 'verMaterial.php'],
+    ['bi-printer', $total['impressoras'], 'Impressoras', 'verImpressora.php'],
+    ['bi-box', $total['modelos'], 'Modelos / peças', 'verModelo.php'],
 ];
 ?>
 <div class="f-cabecalho">
@@ -24,7 +26,7 @@ $cards = [
 
 <div class="row g-3 mb-3">
     <?php foreach ($cards as [$icone, $valor, $rotulo, $link]): ?>
-    <div class="col-sm-6">
+    <div class="col-sm-6 col-xl-3">
         <a href="<?= $link ?>" class="text-decoration-none text-reset">
             <div class="f-card f-card-quente f-indicador">
                 <div class="f-indicador-icone"><i class="bi <?= $icone ?>"></i></div>
@@ -43,8 +45,8 @@ $cards = [
     <div class="row g-2">
         <div class="col-sm-6 col-lg-3 d-grid"><a href="cadastroCliente.php" class="btn btn-aco text-start"><i class="bi bi-people me-2"></i>Novo cliente</a></div>
         <div class="col-sm-6 col-lg-3 d-grid"><a href="cadastroMaterial.php" class="btn btn-aco text-start"><i class="bi bi-circle-half me-2"></i>Novo material</a></div>
-        <div class="col-sm-6 col-lg-3 d-grid"><a href="verCliente.php" class="btn btn-aco text-start"><i class="bi bi-list-ul me-2"></i>Ver clientes</a></div>
-        <div class="col-sm-6 col-lg-3 d-grid"><a href="verMaterial.php" class="btn btn-aco text-start"><i class="bi bi-list-ul me-2"></i>Ver materiais</a></div>
+        <div class="col-sm-6 col-lg-3 d-grid"><a href="cadastroImpressora.php" class="btn btn-aco text-start"><i class="bi bi-printer me-2"></i>Nova impressora</a></div>
+        <div class="col-sm-6 col-lg-3 d-grid"><a href="cadastroModelo.php" class="btn btn-aco text-start"><i class="bi bi-box me-2"></i>Novo modelo</a></div>
     </div>
 </div>
 <?php require 'includes/rodape.php'; ?>
