@@ -60,11 +60,19 @@
         }));
     }
 
+    function previewImagem() {
+        $$('[data-preview]').forEach(input => input.addEventListener('change', () => {
+            const arq = input.files[0];
+            if (arq) $(input.dataset.preview).src = URL.createObjectURL(arq);
+        }));
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         faiscas();
         mostrarSenha();
         confirmarSenhas();
         confirmarEnvios();
         mascaras();
+        previewImagem();
     });
 })();
