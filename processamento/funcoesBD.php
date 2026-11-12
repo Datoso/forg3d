@@ -5,6 +5,8 @@ if (file_exists(__DIR__ . '/config.php')) {
     require_once __DIR__ . '/config.exemplo.php';
 }
 
+date_default_timezone_set('America/Sao_Paulo');
+
 function conectar(): PDO
 {
     static $pdo = null;
@@ -171,10 +173,84 @@ function registrarMovimentacao(int $materialId, string $tipo, float $gramas, str
         [$materialId, $tipo, $delta, $motivo, $orcamentoId, $usuarioId]);
 }
 
+function buscarConfig(): array
+{
+    return consultarUm('SELECT * FROM configuracoes WHERE id = 1') ?? [
+        'nome_empresa' => 'FORG3D', 'tarifa_kwh' => 0.95,
+        'margem_padrao' => 60, 'taxa_falha_padrao' => 10,
+    ];
+}
+
+function listarImpressoras(string $busca = ''): array
+{
+    return consultar('SELECT * FROM impressoras WHERE nome LIKE ? OR marca LIKE ? OR modelo LIKE ? ORDER BY nome',
+        ["%$busca%", "%$busca%", "%$busca%"]);
+}
+
+function buscarImpressora(int $id): ?array
+{
+    return consultarUm('SELECT * FROM impressoras WHERE id = ?', [$id]);
+}
+
+function salvarImpressora(array $d): int
+{
+    $campos = [$d['nome'], $d['marca'], $d['modelo'], $d['tecnologia'], $d['potencia_w'], $d['valor_compra'], $d['vida_util_h'], $d['horas_uso'], $d['status']];
+    if (!empty($d['id'])) {
+        executar('UPDATE impressoras SET nome = ?, marca = ?, modelo = ?, tecnologia = ?, potencia_w = ?, valor_compra = ?, vida_util_h = ?, horas_uso = ?, status = ? WHERE id = ?',
+            [...$campos, $d['id']]);
+        return (int) $d['id'];
+    }
+    executar('INSERT INTO impressoras (nome, marca, modelo, tecnologia, potencia_w, valor_compra, vida_util_h, horas_uso, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', $campos);
+    return ultimoId();
+}
+
+function excluirImpressora(int $id): void
+{
+    executar('DELETE FROM impressoras WHERE id = ?', [$id]);
+}
+
+function listarModelos(string $busca = ''): array
+{
+    return consultar('SELECT m.*, mt.tipo AS material_tipo, mt.cor AS material_cor
+                      FROM modelos m LEFT JOIN materiais mt ON mt.id = m.material_id
+                      WHERE m.nome LIKE ? OR m.categoria LIKE ? ORDER BY m.nome', ["%$busca%", "%$busca%"]);
+}
+
+function buscarModelo(int $id): ?array
+{
+    return consultarUm('SELECT * FROM modelos WHERE id = ?', [$id]);
+}
+
+function salvarModelo(array $d): int
+{
+    $material = !empty($d['material_id']) ? $d['material_id'] : null;
+    if (!empty($d['id'])) {
+        $sql = 'UPDATE modelos SET nome = ?, categoria = ?, descricao = ?, peso_g = ?, tempo_h = ?, material_id = ?';
+        $p = [$d['nome'], $d['categoria'], $d['descricao'], $d['peso_g'], $d['tempo_h'], $material];
+        if (!empty($d['imagem'])) {
+            $sql .= ', imagem = ?';
+            $p[] = $d['imagem'];
+        }
+        $p[] = $d['id'];
+        executar($sql . ' WHERE id = ?', $p);
+        return (int) $d['id'];
+    }
+    executar('INSERT INTO modelos (nome, categoria, descricao, peso_g, tempo_h, material_id, imagem) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [$d['nome'], $d['categoria'], $d['descricao'], $d['peso_g'], $d['tempo_h'], $material, $d['imagem'] ?? null]);
+    return ultimoId();
+}
+
+function excluirModelo(int $id): void
+{
+    executar('DELETE FROM modelos WHERE id = ?', [$id]);
+}
+
 function contarCadastros(): array
 {
     return consultarUm('SELECT (SELECT COUNT(*) FROM clientes) AS clientes,
-                               (SELECT COUNT(*) FROM materiais) AS materiais');
+                               (SELECT COUNT(*) FROM materiais) AS materiais,
+                               (SELECT COUNT(*) FROM impressoras) AS impressoras,
+                               (SELECT COUNT(*) FROM modelos) AS modelos');
 }
 
 function h($texto): string
@@ -201,3 +277,12 @@ function dataBR($data, bool $hora = false): string
     return date($hora ? 'd/m/Y H:i' : 'd/m/Y', strtotime($data));
 }
 
+function rotuloStatus(string $s): string
+{
+    return ['disponivel' => 'Disponível', 'em_uso' => 'Em uso', 'manutencao' => 'Manutenção'][$s] ?? $s;
+}
+
+function badgeStatus(string $s): string
+{
+    return '<span class="f-status f-status-' . h($s) . '">' . h(rotuloStatus($s)) . '</span>';
+}

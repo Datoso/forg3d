@@ -46,6 +46,30 @@ function ir(string $pagina, string $tipo = '', string $mensagem = ''): void
     exit;
 }
 
+function salvarUpload(string $campo): ?string
+{
+    if (empty($_FILES[$campo]['name']) || $_FILES[$campo]['error'] === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+    if ($_FILES[$campo]['error'] !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('Falha no envio da imagem.');
+    }
+    if ($_FILES[$campo]['size'] > 2 * 1024 * 1024) {
+        throw new RuntimeException('A imagem deve ter no máximo 2 MB.');
+    }
+    $tipos = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    $mime = mime_content_type($_FILES[$campo]['tmp_name']);
+    if (!isset($tipos[$mime])) {
+        throw new RuntimeException('Envie uma imagem JPG, PNG ou WEBP.');
+    }
+    $nome = 'modelo-' . uniqid() . '.' . $tipos[$mime];
+    $destino = __DIR__ . '/../img/modelos/' . $nome;
+    if (!move_uploaded_file($_FILES[$campo]['tmp_name'], $destino)) {
+        throw new RuntimeException('Não foi possível salvar a imagem.');
+    }
+    return $nome;
+}
+
 try {
     switch ($acao) {
         case 'login':
@@ -148,12 +172,55 @@ try {
             excluirMaterial((int) $_POST['id']);
             ir('verMaterial.php', 'success', 'Material excluído.');
 
+        case 'salvarImpressora':
+            $d = [
+                'id' => (int) ($_POST['id'] ?? 0), 'nome' => texto('nome', 60), 'marca' => texto('marca', 60), 'modelo' => texto('modelo', 60),
+                'tecnologia' => opcao('tecnologia', ['FDM', 'SLA'], 'FDM'), 'potencia_w' => (int) numero('potencia_w', 1),
+                'valor_compra' => numero('valor_compra'), 'vida_util_h' => (int) numero('vida_util_h', 1), 'horas_uso' => numero('horas_uso'),
+                'status' => opcao('status', ['disponivel', 'em_uso', 'manutencao'], 'disponivel'),
+            ];
+            if ($d['nome'] === '' || $d['marca'] === '' || $d['modelo'] === '') {
+                lembrarFormulario($d);
+                ir('cadastroImpressora.php' . ($d['id'] ? '?id=' . $d['id'] : ''), 'danger', 'Preencha nome, marca e modelo.');
+            }
+            salvarImpressora($d);
+            limparFormulario();
+            ir('verImpressora.php', 'success', 'Impressora "' . $d['nome'] . '" salva.');
+
+        case 'excluirImpressora':
+            excluirImpressora((int) $_POST['id']);
+            ir('verImpressora.php', 'success', 'Impressora excluída.');
+
+        case 'salvarModelo':
+            $d = [
+                'id' => (int) ($_POST['id'] ?? 0), 'nome' => texto('nome', 120), 'categoria' => texto('categoria', 60),
+                'descricao' => texto('descricao', 2000), 'peso_g' => numero('peso_g'), 'tempo_h' => numero('tempo_h'),
+                'material_id' => (int) ($_POST['material_id'] ?? 0),
+            ];
+            if ($d['nome'] === '' || $d['peso_g'] <= 0 || $d['tempo_h'] <= 0) {
+                lembrarFormulario($d);
+                ir('cadastroModelo.php' . ($d['id'] ? '?id=' . $d['id'] : ''), 'danger', 'Informe nome, peso e tempo de impressão.');
+            }
+            try {
+                $d['imagem'] = salvarUpload('imagem');
+            } catch (RuntimeException $e) {
+                lembrarFormulario($d);
+                ir('cadastroModelo.php' . ($d['id'] ? '?id=' . $d['id'] : ''), 'danger', $e->getMessage());
+            }
+            salvarModelo($d);
+            limparFormulario();
+            ir('verModelo.php', 'success', 'Modelo "' . $d['nome'] . '" salvo.');
+
+        case 'excluirModelo':
+            excluirModelo((int) $_POST['id']);
+            ir('verModelo.php', 'success', 'Modelo excluído.');
+
         default:
             ir('home.php', 'warning', 'Ação desconhecida.');
     }
 } catch (PDOException $e) {
     if (erroDeVinculo($e)) {
-        $destinos = ['excluirCliente' => 'verCliente.php', 'excluirMaterial' => 'verMaterial.php'];
+        $destinos = ['excluirCliente' => 'verCliente.php', 'excluirMaterial' => 'verMaterial.php', 'excluirImpressora' => 'verImpressora.php', 'excluirModelo' => 'verModelo.php'];
         ir($destinos[$acao] ?? 'home.php', 'danger', 'Não dá para excluir: esse registro está ligado a orçamentos ou ao histórico do estoque.');
     }
     error_log($e->getMessage());
