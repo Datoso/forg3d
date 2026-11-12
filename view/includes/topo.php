@@ -45,6 +45,8 @@ function ativo(string $item, string $pagina): string
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="verCliente.php"><i class="bi bi-people me-2"></i>Clientes</a></li>
                         <li><a class="dropdown-item" href="verMaterial.php"><i class="bi bi-circle-half me-2"></i>Materiais</a></li>
+                        <li><a class="dropdown-item" href="verImpressora.php"><i class="bi bi-printer me-2"></i>Impressoras</a></li>
+                        <li><a class="dropdown-item" href="verModelo.php"><i class="bi bi-box me-2"></i>Modelos / peças</a></li>
                     </ul>
                 </li>
             </ul>
