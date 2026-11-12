@@ -1,0 +1,10 @@
+processamento/config.php
+
+img/modelos/*.jpg
+img/modelos/*.jpeg
+img/modelos/*.png
+img/modelos/*.webp
+
+.DS_Store
+Thumbs.db
+.vscode/
