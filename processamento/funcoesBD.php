@@ -64,6 +64,20 @@ function erroDuplicado(PDOException $e): bool
     return $e->getCode() == 23000 && str_contains($e->getMessage(), '1062');
 }
 
+function buscarConfig(): array
+{
+    return consultarUm('SELECT * FROM configuracoes WHERE id = 1') ?? [
+        'nome_empresa' => 'FORG3D', 'tarifa_kwh' => 0.95,
+        'margem_padrao' => 60, 'taxa_falha_padrao' => 10,
+    ];
+}
+
+function salvarConfig(array $d): void
+{
+    executar('UPDATE configuracoes SET nome_empresa = ?, tarifa_kwh = ?, margem_padrao = ?, taxa_falha_padrao = ? WHERE id = 1',
+        [$d['nome_empresa'], $d['tarifa_kwh'], $d['margem_padrao'], $d['taxa_falha_padrao']]);
+}
+
 function autenticar(string $email, string $senha): ?array
 {
     $u = consultarUm('SELECT * FROM usuarios WHERE email = ? AND ativo = 1', [$email]);
@@ -73,9 +87,40 @@ function autenticar(string $email, string $senha): ?array
     return null;
 }
 
+function listarUsuarios(string $busca = ''): array
+{
+    return consultar('SELECT id, nome, email, nivel, ativo, criado_em FROM usuarios
+                      WHERE nome LIKE ? OR email LIKE ? ORDER BY nome', ["%$busca%", "%$busca%"]);
+}
+
+function buscarUsuario(int $id): ?array
+{
+    return consultarUm('SELECT id, nome, email, nivel, ativo FROM usuarios WHERE id = ?', [$id]);
+}
+
+function salvarUsuario(array $d): int
+{
+    if (!empty($d['id'])) {
+        executar('UPDATE usuarios SET nome = ?, email = ?, nivel = ?, ativo = ? WHERE id = ?',
+            [$d['nome'], $d['email'], $d['nivel'], $d['ativo'], $d['id']]);
+        if (!empty($d['senha'])) {
+            alterarSenha((int) $d['id'], $d['senha']);
+        }
+        return (int) $d['id'];
+    }
+    executar('INSERT INTO usuarios (nome, email, senha, nivel, ativo) VALUES (?, ?, ?, ?, ?)',
+        [$d['nome'], $d['email'], password_hash($d['senha'], PASSWORD_DEFAULT), $d['nivel'], $d['ativo']]);
+    return ultimoId();
+}
+
 function alterarSenha(int $usuarioId, string $novaSenha): void
 {
     executar('UPDATE usuarios SET senha = ? WHERE id = ?', [password_hash($novaSenha, PASSWORD_DEFAULT), $usuarioId]);
+}
+
+function excluirUsuario(int $id): void
+{
+    executar('DELETE FROM usuarios WHERE id = ?', [$id]);
 }
 
 function gerarTokenSenha(string $email): ?array
@@ -106,7 +151,8 @@ function usarTokenSenha(int $tokenId): void
 
 function listarClientes(string $busca = ''): array
 {
-    return consultar('SELECT c.* FROM clientes c
+    return consultar('SELECT c.*, (SELECT COUNT(*) FROM orcamentos o WHERE o.cliente_id = c.id) AS total_orcamentos
+                      FROM clientes c
                       WHERE c.nome LIKE ? OR c.email LIKE ? OR c.cidade LIKE ? OR c.documento LIKE ?
                       ORDER BY c.nome', ["%$busca%", "%$busca%", "%$busca%", "%$busca%"]);
 }
@@ -163,22 +209,6 @@ function salvarMaterial(array $d, int $usuarioId): int
 function excluirMaterial(int $id): void
 {
     executar('DELETE FROM materiais WHERE id = ?', [$id]);
-}
-
-function registrarMovimentacao(int $materialId, string $tipo, float $gramas, string $motivo, int $usuarioId, ?int $orcamentoId = null): void
-{
-    $delta = $tipo === 'saida' ? -abs($gramas) : ($tipo === 'entrada' ? abs($gramas) : $gramas);
-    executar('UPDATE materiais SET estoque_g = GREATEST(0, estoque_g + ?) WHERE id = ?', [$delta, $materialId]);
-    executar('INSERT INTO movimentacoes_estoque (material_id, tipo, quantidade_g, motivo, orcamento_id, usuario_id) VALUES (?, ?, ?, ?, ?, ?)',
-        [$materialId, $tipo, $delta, $motivo, $orcamentoId, $usuarioId]);
-}
-
-function buscarConfig(): array
-{
-    return consultarUm('SELECT * FROM configuracoes WHERE id = 1') ?? [
-        'nome_empresa' => 'FORG3D', 'tarifa_kwh' => 0.95,
-        'margem_padrao' => 60, 'taxa_falha_padrao' => 10,
-    ];
 }
 
 function listarImpressoras(string $busca = ''): array
@@ -245,6 +275,189 @@ function excluirModelo(int $id): void
     executar('DELETE FROM modelos WHERE id = ?', [$id]);
 }
 
+function calcularItem(array $item, array $material, array $impressora, float $tarifa, float $falha, float $margem): array
+{
+    $peso  = (float) $item['peso_g'];
+    $horas = (float) $item['tempo_h'];
+    $qtd   = max(1, (int) $item['quantidade']);
+
+    $custoMaterial = $peso / 1000 * (float) $material['preco_kg'];
+    $custoEnergia  = $horas * (float) $impressora['potencia_w'] / 1000 * $tarifa;
+    $custoMaquina  = $horas * ((float) $impressora['valor_compra'] / max(1, (int) $impressora['vida_util_h']));
+
+    $custoUnit = ($custoMaterial + $custoEnergia + $custoMaquina) * (1 + $falha / 100);
+    $precoUnit = $custoUnit * (1 + $margem / 100);
+
+    return [
+        'custo_material' => round($custoMaterial, 2),
+        'custo_energia'  => round($custoEnergia, 2),
+        'custo_maquina'  => round($custoMaquina, 2),
+        'custo_unit'     => round($custoUnit, 2),
+        'preco_unit'     => round($precoUnit, 2),
+        'quantidade'     => $qtd,
+    ];
+}
+
+function salvarOrcamento(array $d, array $itens, int $usuarioId): int
+{
+    $cfg    = buscarConfig();
+    $margem = (float) $d['margem'];
+    $falha  = (float) $d['taxa_falha'];
+    $tarifa = (float) $cfg['tarifa_kwh'];
+
+    $pdo = conectar();
+    $pdo->beginTransaction();
+    try {
+        executar('INSERT INTO orcamentos (cliente_id, usuario_id, status, margem, taxa_falha, tarifa_kwh, observacoes, prazo_entrega)
+                  VALUES (?, ?, "pendente", ?, ?, ?, ?, ?)',
+            [$d['cliente_id'], $usuarioId, $margem, $falha, $tarifa, $d['observacoes'], $d['prazo_entrega'] ?: null]);
+        $orcamentoId = ultimoId();
+
+        $custoTotal = 0;
+        $precoTotal = 0;
+        foreach ($itens as $it) {
+            $mat = buscarMaterial((int) $it['material_id']);
+            $imp = buscarImpressora((int) $it['impressora_id']);
+            if (!$mat || !$imp) {
+                throw new RuntimeException('Material ou impressora inválidos em um dos itens.');
+            }
+            $c = calcularItem($it, $mat, $imp, $tarifa, $falha, $margem);
+            executar('INSERT INTO orcamento_itens (orcamento_id, modelo_id, descricao, material_id, impressora_id, quantidade, peso_g, tempo_h,
+                                                   custo_material, custo_energia, custo_maquina, custo_unit, preco_unit)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$orcamentoId, !empty($it['modelo_id']) ? $it['modelo_id'] : null, $it['descricao'], $mat['id'], $imp['id'], $c['quantidade'],
+                 $it['peso_g'], $it['tempo_h'], $c['custo_material'], $c['custo_energia'], $c['custo_maquina'], $c['custo_unit'], $c['preco_unit']]);
+            $custoTotal += $c['custo_unit'] * $c['quantidade'];
+            $precoTotal += $c['preco_unit'] * $c['quantidade'];
+        }
+
+        executar('UPDATE orcamentos SET custo_total = ?, preco_final = ? WHERE id = ?', [round($custoTotal, 2), round($precoTotal, 2), $orcamentoId]);
+        $pdo->commit();
+        return $orcamentoId;
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+}
+
+function listarOrcamentos(string $status = '', string $busca = ''): array
+{
+    $sql = 'SELECT o.*, c.nome AS cliente_nome, u.nome AS usuario_nome,
+                   (SELECT SUM(quantidade) FROM orcamento_itens i WHERE i.orcamento_id = o.id) AS total_pecas
+            FROM orcamentos o
+            JOIN clientes c ON c.id = o.cliente_id
+            JOIN usuarios u ON u.id = o.usuario_id
+            WHERE c.nome LIKE ?';
+    $p = ["%$busca%"];
+    if ($status !== '') {
+        $sql .= ' AND o.status = ?';
+        $p[] = $status;
+    }
+    return consultar($sql . ' ORDER BY o.criado_em DESC', $p);
+}
+
+function buscarOrcamento(int $id): ?array
+{
+    return consultarUm('SELECT o.*, c.nome AS cliente_nome, c.email AS cliente_email, c.telefone AS cliente_telefone,
+                               c.documento AS cliente_documento, c.cidade AS cliente_cidade, u.nome AS usuario_nome
+                        FROM orcamentos o
+                        JOIN clientes c ON c.id = o.cliente_id
+                        JOIN usuarios u ON u.id = o.usuario_id
+                        WHERE o.id = ?', [$id]);
+}
+
+function listarItensOrcamento(int $orcamentoId): array
+{
+    return consultar('SELECT i.*, m.tipo AS material_tipo, m.cor AS material_cor, m.cor_hex, m.marca AS material_marca,
+                             p.nome AS impressora_nome
+                      FROM orcamento_itens i
+                      JOIN materiais m ON m.id = i.material_id
+                      JOIN impressoras p ON p.id = i.impressora_id
+                      WHERE i.orcamento_id = ?', [$orcamentoId]);
+}
+
+function excluirOrcamento(int $id): void
+{
+    executar('DELETE FROM orcamentos WHERE id = ? AND status IN ("pendente", "cancelado")', [$id]);
+}
+
+function registrarMovimentacao(int $materialId, string $tipo, float $gramas, string $motivo, int $usuarioId, ?int $orcamentoId = null): void
+{
+    $delta = $tipo === 'saida' ? -abs($gramas) : ($tipo === 'entrada' ? abs($gramas) : $gramas);
+    executar('UPDATE materiais SET estoque_g = GREATEST(0, estoque_g + ?) WHERE id = ?', [$delta, $materialId]);
+    executar('INSERT INTO movimentacoes_estoque (material_id, tipo, quantidade_g, motivo, orcamento_id, usuario_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [$materialId, $tipo, $delta, $motivo, $orcamentoId, $usuarioId]);
+}
+
+function listarMovimentacoes(int $limite = 40): array
+{
+    return consultar('SELECT mv.*, m.tipo AS material_tipo, m.cor, m.cor_hex, m.marca, u.nome AS usuario_nome
+                      FROM movimentacoes_estoque mv
+                      JOIN materiais m ON m.id = mv.material_id
+                      LEFT JOIN usuarios u ON u.id = mv.usuario_id
+                      ORDER BY mv.criado_em DESC, mv.id DESC LIMIT ' . (int) $limite);
+}
+
+function materiaisEmAlerta(): array
+{
+    return consultar('SELECT * FROM materiais WHERE estoque_g <= estoque_minimo_g ORDER BY (estoque_g / NULLIF(estoque_minimo_g,0))');
+}
+
+function consumoDoOrcamento(int $orcamentoId): array
+{
+    return consultar('SELECT i.material_id, m.tipo, m.cor, m.estoque_g, SUM(i.peso_g * i.quantidade) AS necessario_g
+                      FROM orcamento_itens i JOIN materiais m ON m.id = i.material_id
+                      WHERE i.orcamento_id = ? GROUP BY i.material_id, m.tipo, m.cor, m.estoque_g', [$orcamentoId]);
+}
+
+function alterarStatusOrcamento(int $id, string $novo, int $usuarioId): ?string
+{
+    $fluxo = [
+        'pendente'    => ['aprovado', 'cancelado'],
+        'aprovado'    => ['em_producao', 'cancelado'],
+        'em_producao' => ['concluido', 'cancelado'],
+    ];
+    $orc = buscarOrcamento($id);
+    if (!$orc) {
+        return 'Orçamento não encontrado.';
+    }
+    if (!in_array($novo, $fluxo[$orc['status']] ?? [], true)) {
+        return 'Não é possível mudar de "' . rotuloStatus($orc['status']) . '" para "' . rotuloStatus($novo) . '".';
+    }
+
+    $pdo = conectar();
+    $pdo->beginTransaction();
+    try {
+        if ($novo === 'concluido') {
+            $faltando = [];
+            foreach (consumoDoOrcamento($id) as $c) {
+                if ((float) $c['estoque_g'] < (float) $c['necessario_g']) {
+                    $faltando[] = $c['tipo'] . ' ' . $c['cor'] . ' (precisa ' . gramas($c['necessario_g']) . ', tem ' . gramas($c['estoque_g']) . ')';
+                }
+            }
+            if ($faltando) {
+                $pdo->rollBack();
+                return 'Estoque insuficiente: ' . implode('; ', $faltando) . '. Registre uma entrada no Estoque antes de concluir.';
+            }
+            foreach (consumoDoOrcamento($id) as $c) {
+                registrarMovimentacao((int) $c['material_id'], 'saida', (float) $c['necessario_g'], 'Baixa automática — orçamento #' . $id, $usuarioId, $id);
+            }
+            executar('UPDATE impressoras p JOIN (SELECT impressora_id, SUM(tempo_h * quantidade) h FROM orcamento_itens WHERE orcamento_id = ? GROUP BY impressora_id) x
+                      ON x.impressora_id = p.id SET p.horas_uso = p.horas_uso + x.h', [$id]);
+            executar('UPDATE orcamentos SET status = ?, concluido_em = NOW() WHERE id = ?', [$novo, $id]);
+        } else {
+            executar('UPDATE orcamentos SET status = ? WHERE id = ?', [$novo, $id]);
+        }
+        $pdo->commit();
+        return null;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
 function contarCadastros(): array
 {
     return consultarUm('SELECT (SELECT COUNT(*) FROM clientes) AS clientes,
@@ -279,7 +492,11 @@ function dataBR($data, bool $hora = false): string
 
 function rotuloStatus(string $s): string
 {
-    return ['disponivel' => 'Disponível', 'em_uso' => 'Em uso', 'manutencao' => 'Manutenção'][$s] ?? $s;
+    return [
+        'pendente' => 'Pendente', 'aprovado' => 'Aprovado', 'em_producao' => 'Em produção',
+        'concluido' => 'Concluído', 'cancelado' => 'Cancelado',
+        'disponivel' => 'Disponível', 'em_uso' => 'Em uso', 'manutencao' => 'Manutenção',
+    ][$s] ?? $s;
 }
 
 function badgeStatus(string $s): string

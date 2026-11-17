@@ -172,6 +172,16 @@ try {
             excluirMaterial((int) $_POST['id']);
             ir('verMaterial.php', 'success', 'Material excluído.');
 
+        case 'movimentarEstoque':
+            $materialId = (int) ($_POST['material_id'] ?? 0);
+            $tipo = opcao('tipo', ['entrada', 'ajuste'], 'entrada');
+            $g = (float) str_replace(',', '.', (string) ($_POST['quantidade_g'] ?? 0));
+            if (!buscarMaterial($materialId) || $g == 0 || ($tipo === 'entrada' && $g < 0)) {
+                ir('estoque.php', 'danger', 'Escolha o material e uma quantidade válida (ajuste aceita valor negativo).');
+            }
+            registrarMovimentacao($materialId, $tipo, $g, texto('motivo', 150) ?: ($tipo === 'entrada' ? 'Compra de filamento' : 'Ajuste de inventário'), $usuario['id']);
+            ir('estoque.php', 'success', 'Movimentação registrada.');
+
         case 'salvarImpressora':
             $d = [
                 'id' => (int) ($_POST['id'] ?? 0), 'nome' => texto('nome', 60), 'marca' => texto('marca', 60), 'modelo' => texto('modelo', 60),
@@ -215,12 +225,110 @@ try {
             excluirModelo((int) $_POST['id']);
             ir('verModelo.php', 'success', 'Modelo excluído.');
 
+        case 'salvarUsuario':
+            exigirAdmin();
+            $d = [
+                'id' => (int) ($_POST['id'] ?? 0), 'nome' => texto('nome', 100), 'email' => texto('email', 120),
+                'nivel' => opcao('nivel', ['admin', 'operador'], 'operador'), 'ativo' => isset($_POST['ativo']) ? 1 : 0,
+                'senha' => (string) ($_POST['senha'] ?? ''),
+            ];
+            $volta = 'cadastroUsuario.php' . ($d['id'] ? '?id=' . $d['id'] : '');
+            if ($d['nome'] === '' || !filter_var($d['email'], FILTER_VALIDATE_EMAIL)) {
+                lembrarFormulario($d);
+                ir($volta, 'danger', 'Informe nome e um e-mail válido.');
+            }
+            if ((!$d['id'] || $d['senha'] !== '') && strlen($d['senha']) < 6) {
+                lembrarFormulario($d);
+                ir($volta, 'danger', 'A senha precisa ter ao menos 6 caracteres.');
+            }
+            if ($d['id'] === $usuario['id']) {
+                $d['nivel'] = 'admin';
+                $d['ativo'] = 1;
+            }
+            try {
+                salvarUsuario($d);
+            } catch (PDOException $e) {
+                if (erroDuplicado($e)) {
+                    lembrarFormulario($d);
+                    ir($volta, 'danger', 'Já existe um usuário com esse e-mail.');
+                }
+                throw $e;
+            }
+            limparFormulario();
+            ir('verUsuario.php', 'success', 'Usuário "' . $d['nome'] . '" salvo.');
+
+        case 'excluirUsuario':
+            exigirAdmin();
+            if ((int) $_POST['id'] === $usuario['id']) {
+                ir('verUsuario.php', 'danger', 'Você não pode excluir o próprio usuário.');
+            }
+            excluirUsuario((int) $_POST['id']);
+            ir('verUsuario.php', 'success', 'Usuário excluído.');
+
+        case 'salvarOrcamento':
+            $d = [
+                'cliente_id' => (int) ($_POST['cliente_id'] ?? 0), 'margem' => numero('margem'), 'taxa_falha' => numero('taxa_falha'),
+                'observacoes' => texto('observacoes', 2000),
+                'prazo_entrega' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['prazo_entrega'] ?? '') ? $_POST['prazo_entrega'] : '',
+            ];
+            $itens = [];
+            foreach ((array) ($_POST['itens'] ?? []) as $it) {
+                $desc = mb_substr(trim((string) ($it['descricao'] ?? '')), 0, 150);
+                $peso = (float) str_replace(',', '.', (string) ($it['peso_g'] ?? 0));
+                $tempo = (float) str_replace(',', '.', (string) ($it['tempo_h'] ?? 0));
+                if ($desc === '' || $peso <= 0 || $tempo <= 0) {
+                    continue;
+                }
+                $itens[] = [
+                    'modelo_id' => (int) ($it['modelo_id'] ?? 0), 'descricao' => $desc,
+                    'material_id' => (int) ($it['material_id'] ?? 0), 'impressora_id' => (int) ($it['impressora_id'] ?? 0),
+                    'quantidade' => max(1, (int) ($it['quantidade'] ?? 1)), 'peso_g' => $peso, 'tempo_h' => $tempo,
+                ];
+            }
+            if (!buscarCliente($d['cliente_id']) || !$itens) {
+                ir('orcamento.php', 'danger', 'Escolha o cliente e adicione pelo menos uma peça com descrição, peso e tempo.');
+            }
+            $id = salvarOrcamento($d, $itens, $usuario['id']);
+            ir('detalheOrcamento.php?id=' . $id, 'success', 'Orçamento #' . $id . ' forjado com sucesso!');
+
+        case 'alterarStatus':
+            $id = (int) ($_POST['id'] ?? 0);
+            $novo = opcao('status', ['aprovado', 'em_producao', 'concluido', 'cancelado'], '');
+            $erro = alterarStatusOrcamento($id, $novo, $usuario['id']);
+            $volta = ($_POST['voltar'] ?? '') === 'lista' ? 'verOrcamento.php' : 'detalheOrcamento.php?id=' . $id;
+            if ($erro) {
+                ir($volta, 'danger', $erro);
+            }
+            $msg = $novo === 'concluido'
+                ? 'Orçamento #' . $id . ' concluído. O filamento foi baixado do estoque automaticamente.'
+                : 'Orçamento #' . $id . ' agora está "' . rotuloStatus($novo) . '".';
+            ir($volta, 'success', $msg);
+
+        case 'excluirOrcamento':
+            $id = (int) ($_POST['id'] ?? 0);
+            if (excluirOrcamentoPermitido($id)) {
+                excluirOrcamento($id);
+                ir('verOrcamento.php', 'success', 'Orçamento #' . $id . ' excluído.');
+            }
+            ir('verOrcamento.php', 'danger', 'Só é possível excluir orçamentos pendentes ou cancelados.');
+
+        case 'salvarConfig':
+            exigirAdmin();
+            salvarConfig([
+                'nome_empresa' => texto('nome_empresa', 80) ?: 'FORG3D', 'tarifa_kwh' => numero('tarifa_kwh'),
+                'margem_padrao' => numero('margem_padrao'), 'taxa_falha_padrao' => numero('taxa_falha_padrao'),
+            ]);
+            ir('configuracoes.php', 'success', 'Configurações salvas.');
+
         default:
             ir('home.php', 'warning', 'Ação desconhecida.');
     }
 } catch (PDOException $e) {
     if (erroDeVinculo($e)) {
-        $destinos = ['excluirCliente' => 'verCliente.php', 'excluirMaterial' => 'verMaterial.php', 'excluirImpressora' => 'verImpressora.php', 'excluirModelo' => 'verModelo.php'];
+        $destinos = [
+            'excluirCliente' => 'verCliente.php', 'excluirMaterial' => 'verMaterial.php',
+            'excluirImpressora' => 'verImpressora.php', 'excluirModelo' => 'verModelo.php', 'excluirUsuario' => 'verUsuario.php',
+        ];
         ir($destinos[$acao] ?? 'home.php', 'danger', 'Não dá para excluir: esse registro está ligado a orçamentos ou ao histórico do estoque.');
     }
     error_log($e->getMessage());
@@ -229,3 +337,8 @@ try {
     ir('home.php', 'danger', $e->getMessage());
 }
 
+function excluirOrcamentoPermitido(int $id): bool
+{
+    $o = buscarOrcamento($id);
+    return $o && in_array($o['status'], ['pendente', 'cancelado'], true);
+}
