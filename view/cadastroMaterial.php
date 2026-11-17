@@ -67,7 +67,7 @@ require 'includes/topo.php';
                 <input type="number" step="1" min="0" class="form-control" id="estoque_g" name="estoque_g" value="<?= h($v('estoque_g', 1000)) ?>" <?= $m ? 'disabled' : '' ?>>
                 <span class="input-group-text">g</span>
             </div>
-            <?php if ($m): ?><div class="form-text">O estoque não é alterado na edição do material.</div><?php endif; ?>
+            <?php if ($m): ?><div class="form-text">Para mudar o estoque use a tela <a href="estoque.php">Estoque</a> (fica no histórico).</div><?php endif; ?>
         </div>
         <div class="col-md-3">
             <label class="form-label" for="estoque_minimo_g">Estoque mínimo (alerta)</label>
