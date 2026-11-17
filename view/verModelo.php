@@ -13,7 +13,7 @@ require 'includes/topo.php';
     <div>
         <span class="f-mini">Cadastros</span>
         <h1>Catálogo de modelos</h1>
-        <p>Catálogo de peças da oficina, com peso e tempo de impressão.</p>
+        <p>Peças prontas para orçar em um clique.</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
         <form class="f-busca d-flex gap-2" method="GET">
@@ -43,7 +43,8 @@ require 'includes/topo.php';
                 <?php if ($md['material_tipo']): ?><span class="f-chip"><i class="bi bi-circle-half"></i><?= h($md['material_tipo']) ?></span><?php endif; ?>
             </div>
             <div class="mt-auto d-flex gap-2">
-                <a class="btn btn-aco btn-sm flex-fill" href="cadastroModelo.php?id=<?= $md['id'] ?>"><i class="bi bi-pencil me-1"></i>Editar</a>
+                <a class="btn btn-forja btn-sm flex-fill" href="orcamento.php?modelo=<?= $md['id'] ?>"><i class="bi bi-calculator me-1"></i>Orçar</a>
+                <a class="btn btn-aco btn-sm btn-icone" href="cadastroModelo.php?id=<?= $md['id'] ?>" title="Editar"><i class="bi bi-pencil"></i></a>
                 <form action="../processamento/processamento.php" method="POST" data-confirmar="Excluir o modelo <?= h($md['nome']) ?>?">
                     <?= campoCSRF() ?>
                     <input type="hidden" name="acao" value="excluirModelo">

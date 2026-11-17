@@ -21,7 +21,7 @@ $cards = [
         <h1><?= $saudacao ?>, <span class="f-texto-brasa"><?= h(explode(' ', usuarioLogado()['nome'])[0]) ?></span></h1>
         <p>Cadastros da oficina de impressão 3D.</p>
     </div>
-    <a href="cadastroCliente.php" class="btn btn-forja"><i class="bi bi-plus-lg me-1"></i>Novo cliente</a>
+    <a href="orcamento.php" class="btn btn-forja"><i class="bi bi-calculator me-1"></i>Novo orçamento</a>
 </div>
 
 <div class="row g-3 mb-3">

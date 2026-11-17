@@ -31,7 +31,7 @@ require 'includes/topo.php';
     <div class="table-responsive">
         <table class="table f-tabela table-hover">
             <thead>
-                <tr><th class="ps-4">Cliente</th><th>Contato</th><th>Cidade</th><th class="text-end pe-4">Ações</th></tr>
+                <tr><th class="ps-4">Cliente</th><th>Contato</th><th>Cidade</th><th class="text-center">Orçamentos</th><th class="text-end pe-4">Ações</th></tr>
             </thead>
             <tbody>
             <?php foreach ($clientes as $c): ?>
@@ -45,6 +45,7 @@ require 'includes/topo.php';
                         <div class="small f-muted"><?= h($c['telefone'] ?: '') ?></div>
                     </td>
                     <td><?= h($c['cidade'] ?: '—') ?></td>
+                    <td class="text-center"><span class="f-chip"><?= (int) $c['total_orcamentos'] ?></span></td>
                     <td class="text-end pe-4 text-nowrap">
                         <a class="btn btn-aco btn-icone" href="cadastroCliente.php?id=<?= $c['id'] ?>" title="Editar"><i class="bi bi-pencil"></i></a>
                         <form class="d-inline" action="../processamento/processamento.php" method="POST" data-confirmar="Excluir o cliente <?= h($c['nome']) ?>?">
