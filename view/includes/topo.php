@@ -41,14 +41,26 @@ function ativo(string $item, string $pagina): string
             <ul class="navbar-nav me-auto ms-lg-4 gap-lg-1">
                 <li class="nav-item"><a class="nav-link<?= ativo('home', $pagina) ?>" href="home.php"><i class="bi bi-speedometer2 me-1"></i>Painel</a></li>
                 <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle<?= ativo('orcamentos', $pagina) ?>" href="#" data-bs-toggle="dropdown"><i class="bi bi-calculator me-1"></i>Orçamentos</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="orcamento.php"><i class="bi bi-plus-circle me-2"></i>Novo orçamento</a></li>
+                        <li><a class="dropdown-item" href="verOrcamento.php"><i class="bi bi-list-ul me-2"></i>Todos os orçamentos</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle<?= ativo('cadastros', $pagina) ?>" href="#" data-bs-toggle="dropdown"><i class="bi bi-database me-1"></i>Cadastros</a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="verCliente.php"><i class="bi bi-people me-2"></i>Clientes</a></li>
                         <li><a class="dropdown-item" href="verMaterial.php"><i class="bi bi-circle-half me-2"></i>Materiais</a></li>
                         <li><a class="dropdown-item" href="verImpressora.php"><i class="bi bi-printer me-2"></i>Impressoras</a></li>
                         <li><a class="dropdown-item" href="verModelo.php"><i class="bi bi-box me-2"></i>Modelos / peças</a></li>
+                        <?php if (ehAdmin()): ?>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="verUsuario.php"><i class="bi bi-person-badge me-2"></i>Usuários</a></li>
+                        <?php endif; ?>
                     </ul>
                 </li>
+                <li class="nav-item"><a class="nav-link<?= ativo('estoque', $pagina) ?>" href="estoque.php"><i class="bi bi-boxes me-1"></i>Estoque</a></li>
             </ul>
 
             <div class="dropdown">
@@ -60,6 +72,9 @@ function ativo(string $item, string $pagina): string
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><span class="dropdown-item-text f-mini">Logado desde <?= h($_SESSION['login_em'] ?? '') ?></span></li>
                     <li><a class="dropdown-item" href="perfil.php"><i class="bi bi-person-gear me-2"></i>Meu perfil / senha</a></li>
+                    <?php if (ehAdmin()): ?>
+                    <li><a class="dropdown-item" href="configuracoes.php"><i class="bi bi-sliders me-2"></i>Configurações</a></li>
+                    <?php endif; ?>
                     <li><hr class="dropdown-divider"></li>
                     <li>
                         <form action="../processamento/processamento.php" method="POST">
