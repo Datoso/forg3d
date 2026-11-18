@@ -99,7 +99,7 @@ require 'includes/topo.php';
 
         <div class="f-card p-0 overflow-hidden mb-3">
             <div class="table-responsive">
-                <table class="table f-tabela">
+                <table class="table f-tabela f-tab-itens">
                     <thead><tr><th class="ps-4">Peça</th><th>Material</th><th class="text-center">Qtd</th><th>Por unidade</th><th class="text-end pe-4">Total</th></tr></thead>
                     <tbody>
                     <?php foreach ($itens as $i): ?>
@@ -118,6 +118,13 @@ require 'includes/topo.php';
                 </table>
             </div>
         </div>
+
+        <?php if ($o['sugestao_ia']): ?>
+        <div class="f-card f-ia mb-3">
+            <div class="f-card-titulo"><i class="bi bi-stars"></i>Recomendação do Assistente da Forja</div>
+            <p class="mb-0 small" style="white-space:pre-line"><?= h($o['sugestao_ia']) ?></p>
+        </div>
+        <?php endif; ?>
 
         <?php if ($o['observacoes']): ?>
         <div class="f-card mb-3">

@@ -8,6 +8,7 @@ $materiais = listarMateriais();
 $impressoras = array_values(array_filter(listarImpressoras(), fn($p) => $p['status'] !== 'manutencao'));
 $modelos = listarModelos();
 $modeloInicial = (int) ($_GET['modelo'] ?? 0);
+$iaAtiva = GEMINI_API_KEY !== '';
 
 $titulo = 'Novo orçamento';
 $pagina = 'orcamentos';
@@ -29,9 +30,29 @@ require 'includes/topo.php';
 <form id="formOrcamento" action="../processamento/processamento.php" method="POST">
     <?= campoCSRF() ?>
     <input type="hidden" name="acao" value="salvarOrcamento">
+    <input type="hidden" name="sugestao_ia" id="sugestao_ia">
 
     <div class="row g-3">
         <div class="col-lg-8">
+
+            <div class="f-card f-ia mb-3" id="painelIA">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <div class="f-card-titulo mb-0"><i class="bi bi-stars"></i>Assistente da Forja <span class="f-muted fw-normal small d-none d-sm-inline">· IA generativa Gemini</span></div>
+                    <span class="f-ia-selo <?= $iaAtiva ? 'conectado' : 'demo' ?>"><?= $iaAtiva ? 'Gemini conectado' : 'Modo demonstração' ?></span>
+                </div>
+                <p class="small f-muted mb-3">Digite só o nome da peça. A IA sugere filamentos do seu estoque com as configurações de impressão e busca modelos prontos na internet.</p>
+                <div class="d-flex flex-column flex-md-row gap-2">
+                    <input type="text" class="form-control" id="iaDescricao" maxlength="300" autocomplete="off"
+                           placeholder="Ex.: suporte de celular">
+                    <button class="btn btn-forja px-4 text-nowrap" type="button" id="btnIA"><i class="bi bi-magic me-1"></i>Consultar</button>
+                </div>
+                <div class="d-flex flex-wrap gap-1 mt-2" id="iaExemplos">
+                    <?php foreach (['Suporte de celular', 'Vaso', 'Chaveiro', 'Capa de controle', 'Gancho de parede', 'Suporte de celular para carro'] as $ex): ?>
+                        <button type="button" class="f-chip border-0" data-exemplo="<?= h($ex) ?>"><?= h($ex) ?></button>
+                    <?php endforeach; ?>
+                </div>
+                <div id="iaResultado" class="mt-3"></div>
+            </div>
 
             <div class="f-card mb-3">
                 <div class="f-card-titulo"><i class="bi bi-person-vcard"></i>Cliente e condições</div>

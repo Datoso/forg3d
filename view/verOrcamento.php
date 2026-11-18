@@ -40,7 +40,7 @@ require 'includes/topo.php';
         <div class="f-vazio"><i class="bi bi-receipt"></i>Nenhum orçamento aqui.</div>
     <?php else: ?>
     <div class="table-responsive">
-        <table class="table f-tabela table-hover">
+        <table class="table f-tabela table-hover f-tab-orcamentos">
             <thead><tr><th class="ps-4">#</th><th>Cliente</th><th>Criado</th><th>Peças</th><th>Custo</th><th>Preço</th><th>Status</th><th class="text-end pe-4">Ações</th></tr></thead>
             <tbody>
             <?php foreach ($orcamentos as $o): ?>
@@ -48,7 +48,7 @@ require 'includes/topo.php';
                     <td class="ps-4 fw-semibold"><a href="detalheOrcamento.php?id=<?= $o['id'] ?>">#<?= $o['id'] ?></a></td>
                     <td>
                         <div class="fw-semibold"><?= h($o['cliente_nome']) ?></div>
-                        <div class="small f-muted">por <?= h(explode(' ', $o['usuario_nome'])[0]) ?></div>
+                        <div class="small f-muted">por <?= h(explode(' ', $o['usuario_nome'])[0]) ?><?= $o['sugestao_ia'] ? ' · <i class="bi bi-stars" title="Usou o Assistente da Forja"></i>' : '' ?></div>
                     </td>
                     <td class="f-muted"><?= dataBR($o['criado_em']) ?></td>
                     <td><?= (int) $o['total_pecas'] ?></td>

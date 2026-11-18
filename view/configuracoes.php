@@ -42,15 +42,20 @@ require 'includes/topo.php';
         </form>
     </div>
     <div class="col-lg-5">
-        <div class="f-card h-100">
-            <div class="f-card-titulo"><i class="bi bi-calculator"></i>Como o preço é calculado</div>
-            <ol class="small f-muted mb-0 ps-3 d-flex flex-column gap-2">
-                <li><strong>Material:</strong> peso da peça × preço do kg do filamento.</li>
-                <li><strong>Energia:</strong> horas de impressão × potência da impressora × tarifa do kWh.</li>
-                <li><strong>Máquina:</strong> horas × (valor da impressora ÷ vida útil em horas).</li>
-                <li><strong>Custo:</strong> a soma dos três, acrescida da margem de falha.</li>
-                <li><strong>Preço:</strong> o custo acrescido da margem de lucro.</li>
-            </ol>
+        <div class="f-card f-ia h-100">
+            <div class="f-card-titulo"><i class="bi bi-stars"></i>IA — Gemini</div>
+            <?php if (GEMINI_API_KEY !== ''): ?>
+                <p class="mb-2"><span class="f-ia-selo conectado">Conectado</span> modelo <code><?= h(GEMINI_MODELO) ?></code></p>
+                <p class="small f-muted mb-0">A chave está no arquivo <code>processamento/config.php</code> (fora do GitHub).</p>
+            <?php else: ?>
+                <p class="mb-2"><span class="f-ia-selo demo">Modo demonstração</span></p>
+                <ol class="small f-muted mb-0 ps-3">
+                    <li>Crie uma chave grátis em <strong>aistudio.google.com</strong> → Get API key.</li>
+                    <li>Abra <code>processamento/config.php</code> no VS Code.</li>
+                    <li>Cole a chave em <code>GEMINI_API_KEY</code> e salve.</li>
+                    <li>Recarregue o orçamento: o selo vira "Gemini conectado".</li>
+                </ol>
+            <?php endif; ?>
         </div>
     </div>
 </div>
