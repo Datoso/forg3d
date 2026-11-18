@@ -29,7 +29,7 @@ require 'includes/topo.php';
         <div class="f-vazio"><i class="bi bi-people"></i>Nenhum cliente encontrado.</div>
     <?php else: ?>
     <div class="table-responsive">
-        <table class="table f-tabela table-hover">
+        <table class="table f-tabela table-hover f-tab-clientes">
             <thead>
                 <tr><th class="ps-4">Cliente</th><th>Contato</th><th>Cidade</th><th class="text-center">Orçamentos</th><th class="text-end pe-4">Ações</th></tr>
             </thead>

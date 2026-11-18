@@ -30,8 +30,8 @@ require 'includes/topo.php';
         <div class="f-vazio"><i class="bi bi-circle-half"></i>Nenhum material encontrado.</div>
     <?php else: ?>
     <div class="table-responsive">
-        <table class="table f-tabela table-hover">
-            <thead><tr><th class="ps-4">Material</th><th>Marca</th><th>Preço/kg</th><th style="min-width:200px">Estoque</th><th class="text-end pe-4">Ações</th></tr></thead>
+        <table class="table f-tabela table-hover f-tab-materiais">
+            <thead><tr><th class="ps-4">Material</th><th>Marca</th><th>Preço/kg</th><th class="f-col-estoque">Estoque</th><th class="text-end pe-4">Ações</th></tr></thead>
             <tbody>
             <?php foreach ($materiais as $m):
                 $limite = max(1, $m['estoque_minimo_g'] * 4);

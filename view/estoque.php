@@ -93,8 +93,8 @@ require 'includes/topo.php';
 
         <div class="f-card p-0 overflow-hidden">
             <div class="f-card-titulo px-4 pt-4"><i class="bi bi-clock-history"></i>Histórico de movimentações</div>
-            <div class="table-responsive">
-                <table class="table f-tabela table-hover">
+            <div class="table-responsive f-rolagem">
+                <table class="table f-tabela table-hover f-tab-historico">
                     <thead><tr><th class="ps-4">Data</th><th>Material</th><th>Tipo</th><th class="text-end">Qtd</th><th>Motivo</th><th class="pe-4">Por</th></tr></thead>
                     <tbody>
                     <?php foreach ($movs as $mv): ?>
