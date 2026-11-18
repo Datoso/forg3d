@@ -11,11 +11,11 @@ require 'includes/topo.php';
     <div class="f-login-marca">
         <img src="../img/logo.svg" alt="Logo FORG3D">
         <h1><span class="f-texto-aco">FORG</span><span class="f-texto-brasa">3D</span></h1>
-        <p>Gerenciamento de impressões 3D — forjado camada por camada</p>
+        <p class="f-lema">Forjado camada por camada</p>
     </div>
 
     <div class="f-card f-rebites">
-        <h2 class="h5 mb-4 text-center">Acessar a forja</h2>
+        <h2 class="h5 mb-4 text-center">Acessar Forja</h2>
         <form action="../processamento/processamento.php" method="POST" novalidate>
             <?= campoCSRF() ?>
             <input type="hidden" name="acao" value="login">
@@ -46,7 +46,9 @@ require 'includes/topo.php';
         </form>
     </div>
 
-    <p class="text-center f-muted small mt-3 mb-0">
-        Teste: <code>admin@forg3d.com</code> / <code>admin123</code>
-    </p>
+    <div class="f-teste text-center small mt-3">
+        <div class="f-mini mb-1">Contas de teste</div>
+        <div>Administrador: <code>admin@forg3d.com</code> / <code>admin123</code></div>
+        <div>Operador: <code>operador@forg3d.com</code> / <code>operador123</code></div>
+    </div>
 <?php limparFormulario(); require 'includes/rodape.php'; ?>
