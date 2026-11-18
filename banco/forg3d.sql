@@ -144,7 +144,7 @@ CREATE TABLE ia_consultas (
   usuario_id INT NOT NULL,
   pergunta   TEXT NOT NULL,
   resposta   TEXT NOT NULL,
-  modo       ENUM('claude','demo') NOT NULL,
+  modo       ENUM('gemini','demo') NOT NULL,
   criado_em  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -183,7 +183,7 @@ INSERT INTO modelos (nome, categoria, descricao, peso_g, tempo_h, material_id, i
   ('Engrenagem reforçada 40 dentes', 'Peças técnicas', 'Engrenagem de dentes retos, módulo 1,5, furo de 8 mm.', 35, 1.8, 3, 'modelo-engrenagem.svg', DATE_SUB(NOW(), INTERVAL 145 DAY)),
   ('Chaveiro personalizado', 'Brindes', 'Chaveiro com nome ou logo em relevo, 5 cm.', 8, 0.4, 1, 'modelo-chaveiro.svg', DATE_SUB(NOW(), INTERVAL 140 DAY)),
   ('Organizador de mesa modular', 'Escritório', 'Módulos encaixáveis para canetas, clipes e celular.', 210, 9.0, 3, 'modelo-organizador.svg', DATE_SUB(NOW(), INTERVAL 135 DAY)),
-  ('Capa flexível para controle', 'Proteção', 'Capa em TPU para controle remoto, impressa sem suportes.', 65, 3.2, 5, 'modelo-capa.svg', DATE_SUB(NOW(), INTERVAL 130 DAY));
+  ('Robô articulado', 'Brinquedos', 'Robozinho com braços e pernas articulados, impresso em uma peça só (print-in-place).', 42, 2.8, 1, 'modelo-robo.svg', DATE_SUB(NOW(), INTERVAL 130 DAY));
 
 INSERT INTO orcamentos (id, cliente_id, usuario_id, status, margem, taxa_falha, tarifa_kwh, custo_total, preco_final, prazo_entrega, observacoes, sugestao_ia, criado_em, concluido_em) VALUES
   (1, 2, 1, 'concluido', 60.0, 10.0, 0.95, 65.0, 104.0, DATE(DATE_ADD(DATE_SUB(NOW(), INTERVAL 158 DAY), INTERVAL 7 DAY)), 'Lote de engrenagens para manutenção de máquinas.', NULL, DATE_SUB(NOW(), INTERVAL 158 DAY), DATE_SUB(NOW(), INTERVAL 150 DAY));
@@ -209,7 +209,7 @@ INSERT INTO orcamento_itens (orcamento_id, modelo_id, descricao, material_id, im
 INSERT INTO orcamentos (id, cliente_id, usuario_id, status, margem, taxa_falha, tarifa_kwh, custo_total, preco_final, prazo_entrega, observacoes, sugestao_ia, criado_em, concluido_em) VALUES
   (5, 3, 1, 'concluido', 60.0, 10.0, 0.95, 30.92, 49.48, DATE(DATE_ADD(DATE_SUB(NOW(), INTERVAL 45 DAY), INTERVAL 7 DAY)), '', NULL, DATE_SUB(NOW(), INTERVAL 45 DAY), DATE_SUB(NOW(), INTERVAL 40 DAY));
 INSERT INTO orcamento_itens (orcamento_id, modelo_id, descricao, material_id, impressora_id, quantidade, peso_g, tempo_h, custo_material, custo_energia, custo_maquina, custo_unit, preco_unit) VALUES
-  (5, 6, 'Capa flexível para controle', 5, 1, 2, 65, 3.2, 10.39, 1.06, 2.6, 15.46, 24.74);
+  (5, NULL, 'Capa flexível para controle', 5, 1, 2, 65, 3.2, 10.39, 1.06, 2.6, 15.46, 24.74);
 
 INSERT INTO orcamentos (id, cliente_id, usuario_id, status, margem, taxa_falha, tarifa_kwh, custo_total, preco_final, prazo_entrega, observacoes, sugestao_ia, criado_em, concluido_em) VALUES
   (6, 2, 2, 'concluido', 60.0, 10.0, 0.95, 123.4, 197.6, DATE(DATE_ADD(DATE_SUB(NOW(), INTERVAL 20 DAY), INTERVAL 7 DAY)), 'Segundo lote.', NULL, DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL 14 DAY));
