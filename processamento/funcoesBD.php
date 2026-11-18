@@ -206,9 +206,37 @@ function salvarMaterial(array $d, int $usuarioId): int
     return $id;
 }
 
-function excluirMaterial(int $id): void
+function orcamentosQueUsam(string $coluna, int $id): array
 {
-    executar('DELETE FROM materiais WHERE id = ?', [$id]);
+    $linhas = consultar("SELECT DISTINCT orcamento_id FROM orcamento_itens WHERE $coluna = ? ORDER BY orcamento_id", [$id]);
+    return array_column($linhas, 'orcamento_id');
+}
+
+function avisoEmUso(string $oQue, string $usado, array $orcamentos): string
+{
+    $lista = implode(', ', array_map(fn($n) => '#' . $n, array_slice($orcamentos, 0, 6)));
+    $resto = count($orcamentos) > 6 ? ' e outros' : '';
+    $qtd = count($orcamentos) === 1 ? 'no orçamento' : 'nos orçamentos';
+    return "Não dá para excluir: $oQue foi $usado $qtd $lista$resto. Excluir apagaria o histórico desses pedidos.";
+}
+
+function excluirMaterial(int $id): ?string
+{
+    $usos = orcamentosQueUsam('material_id', $id);
+    if ($usos) {
+        return avisoEmUso('este material', 'usado', $usos);
+    }
+    $pdo = conectar();
+    $pdo->beginTransaction();
+    try {
+        executar('DELETE FROM movimentacoes_estoque WHERE material_id = ?', [$id]);
+        executar('DELETE FROM materiais WHERE id = ?', [$id]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+    return null;
 }
 
 function listarImpressoras(string $busca = ''): array
@@ -234,9 +262,14 @@ function salvarImpressora(array $d): int
     return ultimoId();
 }
 
-function excluirImpressora(int $id): void
+function excluirImpressora(int $id): ?string
 {
+    $usos = orcamentosQueUsam('impressora_id', $id);
+    if ($usos) {
+        return avisoEmUso('esta impressora', 'usada', $usos);
+    }
     executar('DELETE FROM impressoras WHERE id = ?', [$id]);
+    return null;
 }
 
 function listarModelos(string $busca = ''): array
@@ -308,9 +341,9 @@ function salvarOrcamento(array $d, array $itens, int $usuarioId): int
     $pdo = conectar();
     $pdo->beginTransaction();
     try {
-        executar('INSERT INTO orcamentos (cliente_id, usuario_id, status, margem, taxa_falha, tarifa_kwh, observacoes, prazo_entrega)
-                  VALUES (?, ?, "pendente", ?, ?, ?, ?, ?)',
-            [$d['cliente_id'], $usuarioId, $margem, $falha, $tarifa, $d['observacoes'], $d['prazo_entrega'] ?: null]);
+        executar('INSERT INTO orcamentos (cliente_id, usuario_id, status, margem, taxa_falha, tarifa_kwh, observacoes, sugestao_ia, prazo_entrega)
+                  VALUES (?, ?, "pendente", ?, ?, ?, ?, ?, ?)',
+            [$d['cliente_id'], $usuarioId, $margem, $falha, $tarifa, $d['observacoes'], $d['sugestao_ia'] ?: null, $d['prazo_entrega'] ?: null]);
         $orcamentoId = ultimoId();
 
         $custoTotal = 0;
@@ -458,12 +491,47 @@ function alterarStatusOrcamento(int $id, string $novo, int $usuarioId): ?string
     }
 }
 
-function contarCadastros(): array
+function dadosDashboard(): array
 {
-    return consultarUm('SELECT (SELECT COUNT(*) FROM clientes) AS clientes,
-                               (SELECT COUNT(*) FROM materiais) AS materiais,
-                               (SELECT COUNT(*) FROM impressoras) AS impressoras,
-                               (SELECT COUNT(*) FROM modelos) AS modelos');
+    $d = [];
+    $d['faturamento_mes'] = (float) (consultarUm('SELECT COALESCE(SUM(preco_final),0) v FROM orcamentos
+        WHERE status = "concluido" AND DATE_FORMAT(concluido_em, "%Y-%m") = DATE_FORMAT(NOW(), "%Y-%m")')['v']);
+    $d['lucro_mes'] = (float) (consultarUm('SELECT COALESCE(SUM(preco_final - custo_total),0) v FROM orcamentos
+        WHERE status = "concluido" AND DATE_FORMAT(concluido_em, "%Y-%m") = DATE_FORMAT(NOW(), "%Y-%m")')['v']);
+    $d['em_aberto'] = (int) (consultarUm('SELECT COUNT(*) v FROM orcamentos WHERE status IN ("pendente","aprovado","em_producao")')['v']);
+    $d['filamento_mes'] = abs((float) (consultarUm('SELECT COALESCE(SUM(quantidade_g),0) v FROM movimentacoes_estoque
+        WHERE tipo = "saida" AND DATE_FORMAT(criado_em, "%Y-%m") = DATE_FORMAT(NOW(), "%Y-%m")')['v']));
+    $d['horas_maquina'] = (float) (consultarUm('SELECT COALESCE(SUM(i.tempo_h * i.quantidade),0) v FROM orcamento_itens i
+        JOIN orcamentos o ON o.id = i.orcamento_id WHERE o.status = "concluido"')['v']);
+
+    $linhas = consultar('SELECT DATE_FORMAT(concluido_em, "%Y-%m") mes, SUM(preco_final) total, SUM(custo_total) custo
+        FROM orcamentos WHERE status = "concluido" AND concluido_em >= DATE_SUB(DATE_FORMAT(NOW(), "%Y-%m-01"), INTERVAL 5 MONTH)
+        GROUP BY mes');
+    $porMes = array_column($linhas, null, 'mes');
+    $nomes = ['01' => 'Jan', '02' => 'Fev', '03' => 'Mar', '04' => 'Abr', '05' => 'Mai', '06' => 'Jun',
+              '07' => 'Jul', '08' => 'Ago', '09' => 'Set', '10' => 'Out', '11' => 'Nov', '12' => 'Dez'];
+    $d['meses'] = $d['faturamento'] = $d['custos'] = [];
+    for ($i = 5; $i >= 0; $i--) {
+        $chave = date('Y-m', strtotime("first day of -$i month"));
+        $d['meses'][] = $nomes[substr($chave, 5, 2)];
+        $d['faturamento'][] = round((float) ($porMes[$chave]['total'] ?? 0), 2);
+        $d['custos'][] = round((float) ($porMes[$chave]['custo'] ?? 0), 2);
+    }
+
+    $d['consumo_material'] = consultar('SELECT CONCAT(m.tipo, " ", m.cor) rotulo, m.cor_hex, ABS(SUM(mv.quantidade_g)) gramas
+        FROM movimentacoes_estoque mv JOIN materiais m ON m.id = mv.material_id
+        WHERE mv.tipo = "saida" GROUP BY m.id, m.tipo, m.cor, m.cor_hex ORDER BY gramas DESC LIMIT 6');
+    $d['por_status'] = consultar('SELECT status, COUNT(*) total FROM orcamentos GROUP BY status');
+    $d['alertas'] = materiaisEmAlerta();
+    $d['impressoras'] = consultar('SELECT * FROM impressoras ORDER BY status, nome');
+    $d['ultimos'] = consultar('SELECT o.id, o.status, o.preco_final, o.criado_em, c.nome cliente FROM orcamentos o
+        JOIN clientes c ON c.id = o.cliente_id ORDER BY o.criado_em DESC LIMIT 5');
+    return $d;
+}
+
+function registrarConsultaIA(int $usuarioId, string $pergunta, string $resposta, string $modo): void
+{
+    executar('INSERT INTO ia_consultas (usuario_id, pergunta, resposta, modo) VALUES (?, ?, ?, ?)', [$usuarioId, $pergunta, $resposta, $modo]);
 }
 
 function h($texto): string

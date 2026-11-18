@@ -138,7 +138,7 @@ try {
             $d = [
                 'id' => (int) ($_POST['id'] ?? 0), 'nome' => texto('nome', 120), 'tipo' => opcao('tipo', ['PF', 'PJ'], 'PF'),
                 'documento' => texto('documento', 20), 'email' => texto('email', 120), 'telefone' => texto('telefone', 20),
-                'cidade' => texto('cidade', 80), 'observacoes' => texto('observacoes', 2000),
+                'cidade' => texto('cidade', 80), 'observacoes' => texto('observacoes', 2000), 'sugestao_ia' => texto('sugestao_ia', 4000),
             ];
             if ($d['nome'] === '' || ($d['email'] !== '' && !filter_var($d['email'], FILTER_VALIDATE_EMAIL))) {
                 lembrarFormulario($d);
@@ -169,8 +169,8 @@ try {
             ir('verMaterial.php', 'success', 'Material ' . $d['tipo'] . ' ' . $d['cor'] . ' salvo.');
 
         case 'excluirMaterial':
-            excluirMaterial((int) $_POST['id']);
-            ir('verMaterial.php', 'success', 'Material excluído.');
+            $erro = excluirMaterial((int) $_POST['id']);
+            $erro ? ir('verMaterial.php', 'danger', $erro) : ir('verMaterial.php', 'success', 'Material excluído.');
 
         case 'movimentarEstoque':
             $materialId = (int) ($_POST['material_id'] ?? 0);
@@ -198,8 +198,8 @@ try {
             ir('verImpressora.php', 'success', 'Impressora "' . $d['nome'] . '" salva.');
 
         case 'excluirImpressora':
-            excluirImpressora((int) $_POST['id']);
-            ir('verImpressora.php', 'success', 'Impressora excluída.');
+            $erro = excluirImpressora((int) $_POST['id']);
+            $erro ? ir('verImpressora.php', 'danger', $erro) : ir('verImpressora.php', 'success', 'Impressora excluída.');
 
         case 'salvarModelo':
             $d = [
@@ -268,7 +268,7 @@ try {
         case 'salvarOrcamento':
             $d = [
                 'cliente_id' => (int) ($_POST['cliente_id'] ?? 0), 'margem' => numero('margem'), 'taxa_falha' => numero('taxa_falha'),
-                'observacoes' => texto('observacoes', 2000),
+                'observacoes' => texto('observacoes', 2000), 'sugestao_ia' => texto('sugestao_ia', 4000),
                 'prazo_entrega' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['prazo_entrega'] ?? '') ? $_POST['prazo_entrega'] : '',
             ];
             $itens = [];
