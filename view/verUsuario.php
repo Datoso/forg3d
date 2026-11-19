@@ -27,7 +27,7 @@ require 'includes/topo.php';
 
 <div class="f-card p-0 overflow-hidden">
     <div class="table-responsive">
-        <table class="table f-tabela table-hover">
+        <table class="table f-tabela table-hover f-tab-usuarios">
             <thead><tr><th class="ps-4">Usuário</th><th>Nível</th><th>Situação</th><th>Desde</th><th class="text-end pe-4">Ações</th></tr></thead>
             <tbody>
             <?php foreach ($usuarios as $us): ?>
