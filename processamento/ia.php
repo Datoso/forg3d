@@ -50,6 +50,7 @@ $modo = 'demo';
 $aviso = null;
 
 if (GEMINI_API_KEY !== '') {
+    set_time_limit(120);
     $corpo = [
         'systemInstruction' => ['parts' => [['text' => $instrucoes]]],
         'contents'          => [['role' => 'user', 'parts' => [['text' => 'Peça: ' . $descricao]]]],
@@ -60,7 +61,9 @@ if (GEMINI_API_KEY !== '') {
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 40,
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_TIMEOUT        => 90,
+        CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4,
         CURLOPT_HTTPHEADER     => [
             'Content-Type: application/json',
             'x-goog-api-key: ' . GEMINI_API_KEY,
